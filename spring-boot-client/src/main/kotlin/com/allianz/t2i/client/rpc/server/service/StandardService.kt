@@ -1,7 +1,7 @@
 package com.allianz.t2i.client.rpc.server.service
 
 import com.r3.corda.lib.tokens.contracts.states.FungibleToken
-import com.r3.corda.lib.tokens.money.EUR
+import com.r3.corda.lib.tokens.money.USD
 import com.allianz.t2i.common.contracts.schemas.BankAccountStateSchemaV1
 import com.allianz.t2i.common.contracts.states.BankAccountState
 import com.allianz.t2i.common.contracts.types.AccountNumber
@@ -20,12 +20,15 @@ import com.allianz.t2i.client.rpc.server.common.RPCConnectException
 import com.allianz.t2i.client.rpc.server.common.RPCFetchException
 import com.allianz.t2i.client.rpc.server.model.*
 import com.allianz.t2i.client.workflows.flows.RedeemCashShell
+import net.corda.core.internal.sum
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.env.Environment
 
 import org.springframework.stereotype.Service
 import org.springframework.web.bind.annotation.RestController
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 
 private const val CORDA_USER_NAME = "config.rpc.username"
@@ -70,7 +73,7 @@ interface StandardService {
      * Adds the bank account
      */
 
-    fun addBankAccount(node: String,accountId: String, accountName: String, accountNumber: String, sortCode: String): AccountAdditionResponse
+    fun addBankAccount(node: String, accountId: String, accountName: String, accountNumber: String, sortCode: String): AccountAdditionResponse
 
 
     /**
@@ -94,7 +97,10 @@ interface StandardService {
      * Initiates the process for redemption of tokens requested
      */
     fun tokenRedemption(node: String,
-                        amount: String) : TokenRedemptionResponse
+                        amount: String): TokenRedemptionResponse
+
+
+    fun fetchTransactionList(node: String): MutableList<StandardServiceImpl.Transaction>
 }
 
 /**
@@ -104,16 +110,17 @@ interface StandardService {
 open class StandardServiceImpl(@Autowired override val env: Environment) : StandardService {
 
 
+    val transactionList = mutableMapOf<String, MutableList<Transaction>>()
+
+
 
     /**
      * SLF4J logging
      */
     companion object {
         private val logger = LoggerFactory.getLogger(RestController::class.java)
+
     }
-
-
-
 
 
     /**
@@ -134,14 +141,14 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
 
             logger.info("connectRPC method call ")
 
-            when(node) {
+            when (node) {
                 this.env.getProperty(NODE_A_IDENTIFIER) -> {
                     host = env.getProperty(NODE_A_HOST)!!
-                    rpcPort =  env.getProperty(NODE_A_PORT)!!.toInt()
-            }
+                    rpcPort = env.getProperty(NODE_A_PORT)!!.toInt()
+                }
                 this.env.getProperty(NODE_B_IDENTIFIER) -> {
                     host = env.getProperty(NODE_B_HOST)!!
-                    rpcPort =  env.getProperty(NODE_B_PORT)!!.toInt()
+                    rpcPort = env.getProperty(NODE_B_PORT)!!.toInt()
                 }
             }
 
@@ -153,10 +160,9 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
                 throw RPCConnectException()
             }
         } catch (exception: Exception) {
-                throw RPCConnectException()
+            throw RPCConnectException()
         }
     }
-
 
 
     /**
@@ -164,7 +170,6 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
      */
 
     override fun getNodeInfo(node: String): NodeInfoResponse {
-
 
 
         try {
@@ -178,7 +183,6 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
                 return NodeInfoResponse(status = "success", nodeInfo = rpcConnection.nodeInfo())
 
             }
-
 
 
         } catch (exception: Exception) {
@@ -214,17 +218,17 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
                 // Start nrOfFlowsToRun and provide a logical retry function that checks the vault.
                 val flowProgressEvents = mutableMapOf<StateMachineRunId, MutableList<String>>()
 
-                // flow start AddBankAccount bankAccount: { accountId: 12345, accountName: Rogers Account, accountNumber: { sortCode: 442200, accountNumber: 13371337, type: uk }, currency: { tokenIdentifier: EUR, fractionDigits: 2} }, verifier: Issuer
+                // flow start AddBankAccount bankAccount: { accountId: 12345, accountName: Rogers Account, accountNumber: { sortCode: 442200, accountNumber: 13371337, type: uk }, currency: { tokenIdentifier: USD, fractionDigits: 2} }, verifier: Issuer
 
 
                 val accountnumber: AccountNumber = UKAccountNumber(sortCode = sortCode, accountNumber = accountNumber)
-                val bankAccount = BankAccount(accountId = accountId, accountName = accountName, accountNumber = accountnumber, currency = EUR)
+                val bankAccount = BankAccount(accountId = accountId, accountName = accountName, accountNumber = accountnumber, currency = USD)
 
                 val issuerRef = rpcConnection.partiesFromName(query = "Issuer", exactMatch = true)
 
 
                 // DOCSTART rpcReconnectingRPCFlowStarting
-                rpcConnection.runFlowWithLogicalRetry(
+                val flowId = rpcConnection.runFlowWithLogicalRetry(
                         runFlow = { rpc ->
                             logger.debug("Starting addBankAccount for $accountName")
                             val flowHandle = rpc.startTrackedFlowDynamic(
@@ -278,6 +282,7 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
                 val addedBankAccountState: BankAccountState = results.states.first().state.data
 
                 logger.info("Bank Account State found added- Found states ${results.states}")
+
                 return AccountAdditionResponse(status = "success", response = addedBankAccountState)
 
                 // DOCEND rpcReconnectingRPCFlowStarting
@@ -313,13 +318,21 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
                 logger.debug("total count of states: ${unconsumedTokenStates.count()}")
 
                 // aggregate using map reduce
-                val totalTokenValue = (unconsumedTokenStates.map { it.state.data.amount.quantity }.toList().reduce { sum, l -> sum + l }) / 100
+                val totalTokenValue = unconsumedTokenStates.map { it.state.data.amount.toDecimal()}.toList().sum()
 
-                logger.info("Token Value after transfer: $totalTokenValue")
+                logger.info("Token Value : $totalTokenValue")
+
+
 
                 return TokenBalanceResponse(status = "success", tokenBalance = totalTokenValue.toString())
+
             }
-        }catch (exception: Exception) {
+        } catch (exception: Exception) {
+
+            logger.info(exception.toString())
+            if (exception is java.lang.UnsupportedOperationException && exception.message!!.contains("Empty collection can't be reduced.")) {
+                return TokenBalanceResponse(status = "success", tokenBalance = "0")
+            }
             throw RPCFetchException()
         }
 
@@ -349,7 +362,7 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
                 // Recording of flow progress in a map
                 val flowProgressEvents = mutableMapOf<StateMachineRunId, MutableList<String>>()
 
-                // the flow that is invoked -   flow start MoveCashShell recipient: "O=PartyB, L=New York, C=US", amount: 7930, currency: "EUR"
+                // the flow that is invoked -   flow start MoveCashShell recipient: "O=PartyB, L=New York, C=US", amount: 7930, currency: "USD"
                 val recipientParty = rpcConnection.partiesFromName(query = recipient, exactMatch = true).first()
 
                 logger.debug("Receiving Party: $recipientParty")
@@ -376,7 +389,7 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
                                     MoveCashShell::class.java,
                                     recipientParty,
                                     amount.toLong(),
-                                    "EUR"
+                                    "USD"
                             )
                             val flowId = flowHandle.id
                             logger.info("Token transfer flow started:  flow MoveCashShell with flowId: $flowId")
@@ -432,6 +445,8 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
 
                 logger.info("Token Value after transfer: $totalTokenValueAfter")
 
+                transactionList.addEvent(id = node ,transaction =  Transaction(type = "Debit", amount = amount, otherParty = recipient))
+
                 return TokenTransferResponse(status = "success", updatedTokenBalance = totalTokenValueAfter.toString())
 
 
@@ -445,130 +460,144 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
     }
 
 
+
+
     /**
      * Initiates the process of token redemption by initiating the flow [RedeemCashShell]
      */
     override fun tokenRedemption(node: String, amount: String): TokenRedemptionResponse {
 
-            try{
-                /** establish RPC Connection using the [connectRPC] method
-                 * This uses the [use] inline function to execute the given block function on this resource
-                 * and then closes it down correctly whether an exception is thrown or not.
+        try {
+            /** establish RPC Connection using the [connectRPC] method
+             * This uses the [use] inline function to execute the given block function on this resource
+             * and then closes it down correctly whether an exception is thrown or not.
+             */
+            connectRPC(node).use { rpcConnection ->
+
+                // Recording of flow progress in a map
+                val flowProgressEvents = mutableMapOf<StateMachineRunId, MutableList<String>>()
+
+
+                // the flow that is invoked -   flow start RedeemCashShell  amount: 500, currency: "USD", issuer: Issuer
+
+                val issuerRef = rpcConnection.partiesFromName(query = "Issuer", exactMatch = true)
+
+
+                /**
+                 * Temporary solution to find out if the token redemption flow completed successfully by recording the token before redemption
+                 * and comparing it with the token balance after redemption
+                 * This logic cannot be trusted if we have multiple flows happening at the same time which can alter the token balance
+                 * Aggregation of token balance using map and reduce
                  */
-                connectRPC(node).use { rpcConnection ->
-
-                    // Recording of flow progress in a map
-                    val flowProgressEvents = mutableMapOf<StateMachineRunId, MutableList<String>>()
+                val unconsumedTokenStatesBefore = rpcConnection.vaultQueryByCriteria(contractStateType = FungibleToken::class.java, criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED))
+                        .states
 
 
-                    // the flow that is invoked -   flow start RedeemCashShell  amount: 500, currency: "EUR", issuer: Issuer
+                val totalTokenValueBefore = (unconsumedTokenStatesBefore.map { it.state.data.amount.quantity }.toList().reduce { sum, l -> sum + l }) / 100
 
-                    val issuerRef = rpcConnection.partiesFromName(query = "Issuer", exactMatch = true)
-
-
-
-                    /**
-                     * Temporary solution to find out if the token redemption flow completed successfully by recording the token before redemption
-                     * and comparing it with the token balance after redemption
-                     * This logic cannot be trusted if we have multiple flows happening at the same time which can alter the token balance
-                     * Aggregation of token balance using map and reduce
-                     */
-                    val unconsumedTokenStatesBefore = rpcConnection.vaultQueryByCriteria(contractStateType = FungibleToken::class.java, criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED))
-                            .states
+                logger.info("Token Value before redemption: $totalTokenValueBefore")
 
 
-                    val totalTokenValueBefore = (unconsumedTokenStatesBefore.map { it.state.data.amount.quantity }.toList().reduce { sum, l -> sum + l }) / 100
+                // DOCSTART rpcReconnectingRPCFlowStarting
+                rpcConnection.runFlowWithLogicalRetry(
+                        runFlow = { rpc ->
+                            logger.debug("Starting Redemption Flow for $node")
+                            val flowHandle = rpc.startTrackedFlowDynamic(
+                                    RedeemCashShell::class.java,
+                                    amount.toLong(),
+                                    "USD",
+                                    issuerRef.first()
+                            )
+                            val flowId = flowHandle.id
+                            logger.info("Redeem Cash flow started: Redeem $amount with flowId: $flowId")
+                            flowProgressEvents.addEvent(flowId, null)
 
-                    logger.info("Token Value before redemption: $totalTokenValueBefore")
-
-
-
-
-                    // DOCSTART rpcReconnectingRPCFlowStarting
-                    rpcConnection.runFlowWithLogicalRetry(
-                            runFlow = { rpc ->
-                                logger.debug("Starting Redemption Flow for $node")
-                                val flowHandle = rpc.startTrackedFlowDynamic(
-                                        RedeemCashShell::class.java,
-                                        amount.toLong(),
-                                        "EUR",
-                                        issuerRef.first()
-                                )
-                                val flowId = flowHandle.id
-                                logger.info("Redeem Cash flow started: Redeem $amount with flowId: $flowId")
-                                flowProgressEvents.addEvent(flowId, null)
-
-                                // No reconnecting possible.
-                                flowHandle.progress.subscribe(
-                                        { prog ->
-                                            flowProgressEvents.addEvent(flowId, prog)
-                                            logger.info("Progress $flowId : $prog")
-                                        },
-                                        { error ->
-                                            logger.error("Error thrown in the flow progress observer", error)
-                                        })
-                                flowHandle.id
-                            },
-                            hasFlowStarted = { rpc ->
+                            // No reconnecting possible.
+                            flowHandle.progress.subscribe(
+                                    { prog ->
+                                        flowProgressEvents.addEvent(flowId, prog)
+                                        logger.info("Progress $flowId : $prog")
+                                    },
+                                    { error ->
+                                        logger.error("Error thrown in the flow progress observer", error)
+                                    })
+                            flowHandle.id
+                        },
+                        hasFlowStarted = { rpc ->
 
 
-                                val unconsumedTokenStatesAfter = rpc.vaultQueryByCriteria(contractStateType = FungibleToken::class.java, criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED))
-                                        .states
+                            val unconsumedTokenStatesAfter = rpc.vaultQueryByCriteria(contractStateType = FungibleToken::class.java, criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED))
+                                    .states
 
-                                val totalTokenValueAfter = (unconsumedTokenStatesAfter.map { it.state.data.amount.quantity }.toList().reduce { sum, l -> sum + l }) / 100
+                            val totalTokenValueAfter = (unconsumedTokenStatesAfter.map { it.state.data.amount.quantity }.toList().reduce { sum, l -> sum + l }) / 100
 
-                                logger.info("Token Value after redemption: $totalTokenValueAfter")
-
-
-                                totalTokenValueAfter < totalTokenValueBefore
+                            logger.info("Token Value after redemption: $totalTokenValueAfter")
 
 
-                            },
-                            onFlowConfirmed = {
-
-                                logger.debug("Flow started for AddBankAccount.")
-                            }
-                    )
-
-                    // Wait for all events to come in and flows to finish.
-                    Thread.sleep(6000)
+                            totalTokenValueAfter < totalTokenValueBefore
 
 
-                    logger.debug("outside runFlowWithLogicalRetry")
+                        },
+                        onFlowConfirmed = {
+
+                            logger.debug("Flow started for AddBankAccount.")
+                        }
+                )
+
+                // Wait for all events to come in and flows to finish.
+                Thread.sleep(6000)
 
 
-                    /**
-                     * Second part of the token balance checking step to find out if the balance has been reduced. This confirms the flow completion
-                     *
-                     */
-                    val unconsumedTokenStatesAfter = rpcConnection.vaultQueryByCriteria(contractStateType = FungibleToken::class.java, criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED))
-                            .states
+                logger.debug("outside runFlowWithLogicalRetry")
 
-                    val totalTokenValueAfter = (unconsumedTokenStatesAfter.map { it.state.data.amount.quantity }.toList().reduce { sum, l -> sum + l }) / 100
 
-                    logger.info("Token Value after transfer: $totalTokenValueAfter")
+                /**
+                 * Second part of the token balance checking step to find out if the balance has been reduced. This confirms the flow completion
+                 *
+                 */
+                val unconsumedTokenStatesAfter = rpcConnection.vaultQueryByCriteria(contractStateType = FungibleToken::class.java, criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED))
+                        .states
 
-                    return TokenRedemptionResponse(status = "success", updatedTokenBalance = totalTokenValueAfter.toString())
+                val totalTokenValueAfter = (unconsumedTokenStatesAfter.map { it.state.data.amount.quantity }.toList().reduce { sum, l -> sum + l }) / 100
+
+                logger.info("Token Value after transfer: $totalTokenValueAfter")
+
+                transactionList.addEvent(id = node ,transaction =  Transaction(type = "Redeem", amount = amount))
+
+                return TokenRedemptionResponse(status = "success", updatedTokenBalance = totalTokenValueAfter.toString())
 
 
                 // DOCEND rpcReconnectingRPCFlowStarting
 
 
-
-                }
-
-            } catch (exception: Exception) {
-                throw RPCFetchException()
             }
+
+        } catch (exception: Exception) {
+            throw RPCFetchException()
+        }
 
     }
 
 
+    override fun fetchTransactionList(node: String): MutableList<Transaction> {
+        return transactionList.getOrElse(node){ mutableListOf<Transaction>() }
+    }
 
 
     @Synchronized
     fun MutableMap<StateMachineRunId, MutableList<String>>.addEvent(id: StateMachineRunId, progress: String?): Boolean {
         return getOrPut(id) { mutableListOf() }.let { if (progress != null) it.add(progress) else false }
+    }
+
+
+    @Synchronized
+    fun MutableMap<String, MutableList<Transaction>>.addEvent(id: String, transaction: Transaction?): Boolean {
+        return getOrPut(id) { mutableListOf() }.let { if (transaction != null) it.add(transaction) else false }
+    }
+
+
+    data class Transaction(val type: String, val amount: String, val otherParty: String? ) {
+        constructor( type: String,  amount: String) :  this(type, amount, null)
     }
 
 }

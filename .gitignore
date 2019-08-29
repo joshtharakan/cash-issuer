@@ -75,3 +75,8 @@ crashlytics-build.properties
 docs/virtualenv/
 /cash-issuer/daemon/src/main/resources/starling.conf
 /cash-issuer/daemon/src/main/resources/monzo.conf
+
+
+# Allianz GHE access related
+access.token
+offline.token

@@ -135,7 +135,7 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar','daemon:sha
         rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
     }
     node {
-        name "O=PartyA,L=New York,C=US"
+        name "O=AGCSSE,L=Munich,C=DE"
         p2pPort 10008
         rpcSettings {
             address("localhost:10009")
@@ -145,7 +145,7 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar','daemon:sha
         rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
     }
     node {
-        name "O=PartyB,L=New York,C=US"
+        name "O=AGCSNA,L=New York,C=US"
         p2pPort 10011
         rpcSettings {
             address("localhost:10012")

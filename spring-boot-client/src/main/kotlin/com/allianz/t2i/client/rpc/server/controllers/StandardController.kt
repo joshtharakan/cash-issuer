@@ -32,7 +32,7 @@ class StandardController(val standardService: StandardService) {
      * Rest endpoint for fetch node information
      */
     @GetMapping("/nodeinfo")
-    private fun getNodeInfo(@RequestParam(value="node", defaultValue = "PartyA") node: String): ResponseEntity<String> {
+    private fun getNodeInfo(@RequestParam(value="node", defaultValue = "AGCSSE") node: String): ResponseEntity<String> {
 
         try {
             val rpcResponse = this.standardService.getNodeInfo(node)

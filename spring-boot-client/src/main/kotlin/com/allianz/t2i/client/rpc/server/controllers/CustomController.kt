@@ -1,5 +1,6 @@
 package com.allianz.t2i.client.rpc.server.controllers
 
+import com.allianz.t2i.client.rpc.server.common.InternalServiceException
 import net.corda.client.jackson.JacksonSupport
 import com.allianz.t2i.client.rpc.server.common.RPCFetchException
 import com.allianz.t2i.client.rpc.server.service.StandardService
@@ -30,7 +31,7 @@ class CustomController(val standardService: StandardService) {
      * @param account ID,Name,Number,sortcode represents account details
      */
     @PostMapping("/addbankaccount")
-    private fun addBankAccount(@RequestParam(value="node", defaultValue = "PartyA") node: String,
+    private fun addBankAccount(@RequestParam(value="node", defaultValue = "AGCSSE") node: String,
                                 @RequestParam(value="accountId", defaultValue = "12345") accountId: String,
                                @RequestParam(value="accountName", defaultValue = "AGCS SE") accountName: String,
                                @RequestParam(value="accountNumber", defaultValue = "13371337") accountNumber: String,
@@ -67,7 +68,7 @@ class CustomController(val standardService: StandardService) {
      * @param amount amount to transfer
      */
     @PostMapping( "/tokentransfer")
-    private fun tokenTransfer(@RequestParam(value="node", defaultValue = "PartyA") node: String,
+    private fun tokenTransfer(@RequestParam(value="node", defaultValue = "AGCSSE") node: String,
                               @RequestParam(value="recipient", defaultValue = "PartyB") recipient: String,
                               @RequestParam(value="amount", defaultValue = "100") amount: String)
                 : ResponseEntity<String> {
@@ -101,7 +102,7 @@ class CustomController(val standardService: StandardService) {
      */
 
     @GetMapping( "/tokenbalance")
-    private fun getTokenBalance(@RequestParam(value="node", defaultValue = "PartyA") node: String): ResponseEntity<String> {
+    private fun getTokenBalance(@RequestParam(value="node", defaultValue = "AGCSSE") node: String): ResponseEntity<String> {
 
         try {
             val rpcResponse = this.standardService.getTokenBalance(node)
@@ -130,7 +131,7 @@ class CustomController(val standardService: StandardService) {
      * @param amount amount to redeem
      */
     @PostMapping( "/tokenredeem")
-    private fun tokenTransfer(@RequestParam(value="node", defaultValue = "PartyA") node: String,
+    private fun tokenTransfer(@RequestParam(value="node", defaultValue = "AGCSSE") node: String,
                               @RequestParam(value="amount", defaultValue = "100") amount: String)
             : ResponseEntity<String> {
 
@@ -150,6 +151,39 @@ class CustomController(val standardService: StandardService) {
 
         } catch (exception: Exception) {
             throw RPCFetchException()
+        }
+
+
+    }
+
+
+    /**
+     * Rest endpoint for token transfer and node info to which connections is established
+     * @param node Node identity to be used for rpc connection
+     * @param amount amount to redeem
+     */
+    @GetMapping( "/transactionlist")
+    private fun transactionList(@RequestParam(value="node", defaultValue = "AGCSSE") node: String)
+            : ResponseEntity<String> {
+
+        try {
+            val transactionList = standardService.fetchTransactionList(node)
+
+
+
+            if(transactionList.isNotEmpty()){
+
+
+                // generate json response
+                val mapper = JacksonSupport.createNonRpcMapper()
+                val transactionListResponse = mapper.writeValueAsString(transactionList)  // myCordaState can be any object.
+
+                return ResponseEntity.ok().body(transactionListResponse)
+            }
+            else throw InternalServiceException("Transaction list empty")
+
+        } catch (exception: Exception) {
+            throw InternalServiceException(exception.message?:"Transaction fetch exception")
         }
 
 

@@ -1,7 +1,7 @@
 package com.allianz.t2i.issuer.daemon
 
 import com.allianz.t2i.issuer.daemon.mock.MockMonzo
-import com.r3.corda.lib.tokens.money.EUR
+import com.r3.corda.lib.tokens.money.USD
 import com.allianz.t2i.common.contracts.types.NostroTransaction
 import com.allianz.t2i.common.contracts.types.UKAccountNumber
 import com.allianz.t2i.common.workflows.utilities.generateRandomString
@@ -10,6 +10,7 @@ import net.corda.client.rpc.CordaRPCClient
 import net.corda.client.rpc.RPCException
 import net.corda.core.messaging.CordaRPCOps
 import net.corda.core.utilities.NetworkHostAndPort.Companion.parse
+import java.math.RoundingMode
 import java.time.Instant
 import java.util.*
 import kotlin.system.exitProcess
@@ -87,9 +88,12 @@ private fun manual(daemon: AbstractDaemon, cmdLineOptions: CommandLineOptions, s
 
     println("Enter the amount")
     prompt()
-    val amount = scanner.nextLine().toLong()
+    val amount = scanner.nextLine().toBigDecimal()
+    val tokenAmount = amount.setScale(2, RoundingMode.CEILING).multiply(100.toBigDecimal()).longValueExact()
 
-    val tx = NostroTransaction(txId, accountId, amount, EUR, type, description, now, source, destination)
+    println("The amount of tokens generated:$tokenAmount")
+
+    val tx = NostroTransaction(txId, accountId, tokenAmount, USD , type, description, now, source, destination)
 
     val monzo = daemon.openBankingApiClients.single { it is MockMonzo } as MockMonzo
     monzo.transactions.add(tx)

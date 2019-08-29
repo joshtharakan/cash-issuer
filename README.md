@@ -25,13 +25,13 @@ The repo is split into a number of modules:
    states
 5. **service-ui** - a basic JavaFx app that provides a view on the cash issuer
    node.
-6. **spring-boot-client** - spring boot web server api to connect with the other party nodes in the network
+6. **spring-boot-client** - A simplified microservice to expose RESTful API to interact with different nodes
    
 
 ## Requirements
 
-1. Three bank accounts. One for the Issuer, one for PartyA and one for
-   partyB.
+1. Three bank accounts. One for the Issuer, one for AGCS SE and one for
+   AGCS NA.
 2. The bank holding the Issuer's bank account needs to offer a
    public API which allows clients to get account information, balance
    information and transaction information in real time.
@@ -87,7 +87,7 @@ Start the corda nodes and issuer daemon:
 1. Assuming that we have not yet implemented the bank APIs for the daemon to poll for transactions, we use
    the daemon in `--mock-mode`
 2. From the root of this repo run `./gradlew clean deployNodes`. The
-   deployNodes script will build `Notary` `Issuer`, `PartyA` and `PartyB`
+   deployNodes script will build `Notary` `Issuer`, `AGCSSE` and `AGCSNA`
    nodes. Also it will build the jar for `daemon` and `service-ui`
 3. start the nodes `./build/nodes/runnodes`.
 5. Wait for all the nodes to start up.
@@ -102,7 +102,7 @@ perform different actions by invoking the REST APIs
 Detailed description of each API endpoints is given in the [Postman Collection](design/postman.json)
 
 **Add Bank Account** 
-1. From `PartyA` add a new bank account via the API call `http://localhost:10055/t2i/addbankaccount?node=PartyA&accountId=11111&accountName=AGCSSE&accountNumber=13371337&sortCode=442200`. 
+1. From `AGCSSE` node add a new bank account via the API call `http://localhost:10055/t2i/addbankaccount?node=AGCSSE&accountId=11111&accountName=AGCSSE&accountNumber=13371337&sortCode=442200`. 
 The bank account number and sort code should be provided as any of the predefined ones if we are running in the mock mode. 
 
 2. Next, we need to verify the bank account from the issuer node. The flow for enabling this functionality is not yet implemented. 
@@ -118,17 +118,17 @@ The bank account number and sort code should be provided as any of the predefine
 5. The Issuer UI should update in the "nostro transactions" pane and the "node transactions"
     pane showing the above states
     
-6. Assuming the correct details for the bank account used by PartyA were
+6. Assuming the correct details for the bank account used by AGCSSE were
     added and successfully sent to the issuer, then the `NodeTransactionState` will trigger the flow for generating tokens of type `FiatCurrency`
     and the `NodeTransactionState` should be marked as complete.
     
 7. Run ` run vaultQuery contractStateType: com.r3.corda.lib.tokens.contracts.states.FungibleToken`
-    from PartyA to inspect the amount of fungible tokens issued. It should be for
+    from AGCSSE node to inspect the amount of fungible tokens issued. It should be for
     the same amount of the payment sent to the issuer's account.
     
 **Token Transfer**
 
-1. From `PartyA` initiate the token transfer via the API call `http://localhost:10055/t2i/addbankaccount?node=PartyA&accountId=11111&accountName=AGCSSE&accountNumber=13371337&sortCode=442200`. 
+1. From `AGCSSE` node initiate the token transfer via the API call `http://localhost:10055/t2i/addbankaccount?node=AGCSSE&accountId=11111&accountName=AGCSSE&accountNumber=13371337&sortCode=442200`. 
    Provide the well known identity of the party to which token needs to be transferred as well as the quantity of token to be transferred.
 
 2. After successful completion the result will be the updated token balance after the transfer
@@ -136,8 +136,8 @@ The bank account number and sort code should be provided as any of the predefine
  
 **Token Redemption**
 
-1. For `PartyA` to initiate a redemption, use the API `http://localhost:10055/t2i/tokenredeem?node=PartyA&amount=10000`.
-Provide the amount of token to be redeemed and the well known identity of `PartyA`
+1. For `AGCSSE` node to initiate a redemption, use the API `http://localhost:10055/t2i/tokenredeem?node=AGCSSE&amount=10000`.
+Provide the amount of token to be redeemed and the well known identity of `AGCSSE`
 
 2. It will trigger the flow to destroy the required amount of UNCONSUMED tokens from Node A and then will create `NodeTransactionState` corresponding to the actual physical transfer required.
 
@@ -147,7 +147,7 @@ Provide the amount of token to be redeemed and the well known identity of `Party
 
 
 **Token Balance**
-1. Token balance at anytime can be fetched using the api `http://localhost:10055/t2i/tokenbalance?node=PartyA`
+1. Token balance at anytime can be fetched using the api `http://localhost:10055/t2i/tokenbalance?node=AGCSSE`
 Provide the well known identity of the node as parameter. 
 
 ## Working with the issuer daemon

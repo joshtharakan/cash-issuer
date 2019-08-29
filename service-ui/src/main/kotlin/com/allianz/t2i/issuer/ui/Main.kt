@@ -205,7 +205,7 @@ class BankAccountView : View("Cash Issuer") {
                         style {
                             fontSize = 24.px
                         }
-                        text = "Total bank balances: EUR "
+                        text = "Total bank balances: USD "
                     }
                     label {
                         style {
@@ -219,7 +219,7 @@ class BankAccountView : View("Cash Issuer") {
                         style {
                             fontSize = 24.px
                         }
-                        text = "Total amount issued: EUR "
+                        text = "Total amount issued: USD "
                     }
                     label {
                         style {
@@ -367,7 +367,7 @@ class AddBankAccountView : Fragment("Cash Issuer") {
                     whenDocked { requestFocus() }
                 }
             }
-            field("Currency (EUR only)") {
+            field("Currency (USD only)") {
                 textfield(model.currency) {
                     required()
                     whenDocked { requestFocus() }

@@ -1,6 +1,6 @@
 package com.allianz.t2i.issuer.daemon.mock
 
-import com.r3.corda.lib.tokens.money.EUR
+import com.r3.corda.lib.tokens.money.USD
 import com.allianz.t2i.common.contracts.types.BankAccount
 import com.allianz.t2i.common.contracts.types.NostroTransaction
 import com.allianz.t2i.common.contracts.types.UKAccountNumber
@@ -20,8 +20,8 @@ interface MockClient {
 val mockMonzoAccount = BankAccount(
         accountId = "acc_00009RE1DzwEupfetgm84f",
         accountName = "T2I Trust",
-        accountNumber = UKAccountNumber("97784499", "040004"),
-        currency = EUR
+        accountNumber = UKAccountNumber(accountNumber = "97784499", sortCode =  "040004"),
+        currency = USD
 )
 
 val mockMonzoCounterparties = listOf(
@@ -80,12 +80,12 @@ fun mockTransactionGenerator(
         val now = Instant.now()
 
         val nostroTransaction = if (amount > 0L) {
-            NostroTransaction(nextId, mockApi.account.accountId, amount, EUR, type, description, now,
+            NostroTransaction(nextId, mockApi.account.accountId, amount, USD, type, description, now,
                     source = contact.accountNumber,
                     destination = mockApi.account.accountNumber
             )
         } else {
-            NostroTransaction(nextId, mockApi.account.accountId, amount, EUR, type, description, now,
+            NostroTransaction(nextId, mockApi.account.accountId, amount, USD, type, description, now,
                     source = mockApi.account.accountNumber,
                     destination = contact.accountNumber
             )

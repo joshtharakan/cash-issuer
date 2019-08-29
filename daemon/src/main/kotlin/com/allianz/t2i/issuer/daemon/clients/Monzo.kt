@@ -44,7 +44,7 @@ class MonzoClient(configName: String) : OpenBankingApiClient(configName) {
         // TODO: Filter accounts based upon those whitelisted in the config file.
         val accounts = wrapWithTry { api.accounts().getOrThrow().accounts.filter { !it.closed } }
         // Monzo doesn't provide the currency of its accounts.
-        // For now they are all EUR but that might change...
+        // For now they are all USD but that might change...
         val currencies = wrapWithTry { accounts.map { balance(it.id).token } }
         require(currencies.size == accounts.size) { "Couldn't obtain currency information for all accounts." }
         // Join the currencies to the bank account data.
