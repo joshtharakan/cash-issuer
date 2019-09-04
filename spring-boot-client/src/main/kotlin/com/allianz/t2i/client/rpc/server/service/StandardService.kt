@@ -29,6 +29,7 @@ import org.springframework.stereotype.Service
 import org.springframework.web.bind.annotation.RestController
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.util.*
 
 
 private const val CORDA_USER_NAME = "config.rpc.username"
@@ -381,6 +382,9 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
 
                 logger.info("Token Value before transfer: $totalTokenValueBefore")
 
+                lateinit var flowUUID: UUID
+
+
                 // DOCSTART rpcReconnectingRPCFlowStarting
                 rpcConnection.runFlowWithLogicalRetry(
                         runFlow = { rpc ->
@@ -391,7 +395,10 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
                                     amount.toLong(),
                                     "USD"
                             )
-                            val flowId = flowHandle.id
+
+                             val flowId = flowHandle.id
+                            flowUUID = flowId.uuid
+
                             logger.info("Token transfer flow started:  flow MoveCashShell with flowId: $flowId")
                             flowProgressEvents.addEvent(flowId, null)
 
@@ -445,7 +452,7 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
 
                 logger.info("Token Value after transfer: $totalTokenValueAfter")
 
-                transactionList.addEvent(id = node ,transaction =  Transaction(type = "Debit", amount = amount, otherParty = recipient))
+                transactionList.addEvent(id = node ,transaction =  Transaction(id = flowUUID, type = "Transfer", amount = amount, otherParty = recipient))
 
                 return TokenTransferResponse(status = "success", updatedTokenBalance = totalTokenValueAfter.toString())
 
@@ -497,6 +504,7 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
 
                 logger.info("Token Value before redemption: $totalTokenValueBefore")
 
+                lateinit var flowUUID: UUID
 
                 // DOCSTART rpcReconnectingRPCFlowStarting
                 rpcConnection.runFlowWithLogicalRetry(
@@ -509,6 +517,7 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
                                     issuerRef.first()
                             )
                             val flowId = flowHandle.id
+                            flowUUID = flowId.uuid
                             logger.info("Redeem Cash flow started: Redeem $amount with flowId: $flowId")
                             flowProgressEvents.addEvent(flowId, null)
 
@@ -562,7 +571,7 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
 
                 logger.info("Token Value after transfer: $totalTokenValueAfter")
 
-                transactionList.addEvent(id = node ,transaction =  Transaction(type = "Redeem", amount = amount))
+                transactionList.addEvent(id = node ,transaction =  Transaction(id = flowUUID, type = "Redeem", amount = amount))
 
                 return TokenRedemptionResponse(status = "success", updatedTokenBalance = totalTokenValueAfter.toString())
 
@@ -596,8 +605,8 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
     }
 
 
-    data class Transaction(val type: String, val amount: String, val otherParty: String? ) {
-        constructor( type: String,  amount: String) :  this(type, amount, null)
+    data class Transaction(val id: UUID, val type: String, val amount: String, val otherParty: String? ) {
+        constructor(id: UUID,  type: String,  amount: String) :  this(id, type, amount, null)
     }
 
 }
