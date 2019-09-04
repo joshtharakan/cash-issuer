@@ -51,7 +51,7 @@ class AddBankAccount(val bankAccount: BankAccount, val verifier: Party) : FlowLo
         val notary = serviceHub.networkMapCache.notaryIdentities.first()
 
         // The node running this flow is always the only signer.
-        val command = Command(BankAccountContract.Add(), listOf(ourIdentity.owningKey))
+        val command = Command(BankAccountContract.Commands.Add(), listOf(ourIdentity.owningKey))
         val unsignedTransaction = TransactionBuilder(notary = notary).apply {
             addOutputState(bankAccountState)
             addCommand(command)

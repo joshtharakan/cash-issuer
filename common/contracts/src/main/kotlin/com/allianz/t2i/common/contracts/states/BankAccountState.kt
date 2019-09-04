@@ -41,7 +41,7 @@ data class BankAccountState(
             accountNumber: AccountNumber,
             currency: TokenType,
             type: BankAccountType
-    ) : this(owner, verifier, accountName, accountNumber, currency, type, false, UniqueIdentifier(accountId))
+    ) : this(owner, verifier, accountName, accountNumber, currency, type, true, UniqueIdentifier(accountId))
 
     override val participants: List<AbstractParty> get() = listOf(owner)
 
