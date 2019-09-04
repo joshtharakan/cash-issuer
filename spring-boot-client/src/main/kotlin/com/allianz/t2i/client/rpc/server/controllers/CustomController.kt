@@ -100,7 +100,7 @@ class CustomController(val standardService: StandardService) {
      * Rest endpoint for fetch token balance from vault using vault query
      * @param node Node identity to be used for rpc connection
      */
-
+//    @CrossOrigin(origins = ["http://localhost:4200"])
     @GetMapping( "/tokenbalance")
     private fun getTokenBalance(@RequestParam(value="node", defaultValue = "AGCSSE") node: String): ResponseEntity<String> {
 
