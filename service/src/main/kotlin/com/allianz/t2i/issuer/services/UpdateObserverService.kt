@@ -38,10 +38,10 @@ class UpdateObserverService(val services: AppServiceHub) : SingletonSerializeAsT
         // TODO: For Corda core: We need to add commands to vault update events.
         services.validatedTransactions.updates.observeOn(Schedulers.io()).subscribe({ signedTransaction ->
 
-            val isAddBankAccount = checkCommand<BankAccountContract.Add>(signedTransaction)
-            val isUpdateBankAccount = checkCommand<BankAccountContract.Update>(signedTransaction)
-            val isAddNostroTransaction = checkCommand<NostroTransactionContract.Add>(signedTransaction)
-            val isMatchNostroTransaction = checkCommand<NostroTransactionContract.Match>(signedTransaction)
+            val isAddBankAccount = checkCommand<BankAccountContract.Commands.Add>(signedTransaction)
+            val isUpdateBankAccount = checkCommand<BankAccountContract.Commands.Update>(signedTransaction)
+            val isAddNostroTransaction = checkCommand<NostroTransactionContract.Commands.Add>(signedTransaction)
+            val isMatchNostroTransaction = checkCommand<NostroTransactionContract.Commands.Match>(signedTransaction)
             val isRedeem = checkCommand<RedeemTokenCommand>(signedTransaction)
 
             logger.info("isAddBankAccount=$isAddBankAccount,isAddNostroTx=$isAddNostroTransaction,isMatchNostroTx=" +

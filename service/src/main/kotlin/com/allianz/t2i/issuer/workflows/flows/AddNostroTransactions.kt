@@ -43,7 +43,7 @@ class AddNostroTransactions(val newNostroTransactions: List<NostroTransaction>) 
         // as well, otherwise we'll end up trying to commit transactions with no output states!
         logger.info("Starting AddNostroTransaction flow...")
 
-        newNostroTransactions.forEach { logger.info(it.toString()) }
+            newNostroTransactions.forEach { logger.info(it.toString()) }
 
         if (newNostroTransactions.isEmpty()) {
             return emptyMap()
@@ -64,7 +64,7 @@ class AddNostroTransactions(val newNostroTransactions: List<NostroTransaction>) 
         // Now, commit the nostro transaction records to the ledger. It's only the issuer that sees this though.
         val notary = serviceHub.networkMapCache.notaryIdentities.first()
         // It's always the issuer that signs.
-        val command = Command(NostroTransactionContract.Add(), listOf(ourIdentity.owningKey))
+        val command = Command(NostroTransactionContract.Commands.Add(), listOf(ourIdentity.owningKey))
 
         // Create a transaction builder, then add all the nostro transaction states and command.
         val unsignedTransaction = TransactionBuilder(notary = notary).addCommand(command)

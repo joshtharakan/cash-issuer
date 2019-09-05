@@ -39,7 +39,7 @@ class ProcessNostroTransaction(val stateAndRef: StateAndRef<NostroTransactionSta
      */
     @Suspendable
     private fun createBaseTransaction(builder: TransactionBuilder, newType: NostroTransactionType, newStatus: NostroTransactionStatus) {
-        val command = Command(NostroTransactionContract.Match(), listOf(ourIdentity.owningKey))
+        val command = Command(NostroTransactionContract.Commands.Match(), listOf(ourIdentity.owningKey))
         val nostroTransactionOutput = stateAndRef.state.data.copy(type = newType, status = newStatus)
         builder
                 .addInputState(stateAndRef)
