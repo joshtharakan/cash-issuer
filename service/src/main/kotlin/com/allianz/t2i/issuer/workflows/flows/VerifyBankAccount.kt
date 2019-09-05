@@ -38,7 +38,7 @@ class VerifyBankAccount(
 
         logger.info("Updating verified flag for ${bankAccountState.accountNumber}.")
         val updatedBankAccountState = bankAccountState.copy(verified = true)
-        val command = Command(BankAccountContract.Update(), listOf(ourIdentity.owningKey))
+        val command = Command(BankAccountContract.Commands.Update(), listOf(ourIdentity.owningKey))
         val utx = TransactionBuilder(notary = notary).apply {
             addInputState(bankAccountStateAndRef)
             addCommand(command)
