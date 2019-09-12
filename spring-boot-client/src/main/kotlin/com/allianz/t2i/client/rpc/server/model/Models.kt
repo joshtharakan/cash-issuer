@@ -1,6 +1,9 @@
 package com.allianz.t2i.client.rpc.server.model
 
 import com.allianz.t2i.common.contracts.states.BankAccountState
+import com.allianz.t2i.common.contracts.types.AccountNumber
+import com.allianz.t2i.common.contracts.types.BankAccount
+import com.allianz.t2i.common.contracts.types.BankAccountType
 import net.corda.core.node.NodeInfo
 
 
@@ -10,6 +13,9 @@ import net.corda.core.node.NodeInfo
 abstract class BasicResponse() {
     abstract val status: String
 }
+
+
+
 
 /**
  * Represents RPCConnect model
@@ -43,3 +49,7 @@ data class TokenTransferResponse(override val status: String, val updatedTokenBa
  * Represents response model for Token Redemption call
  */
 data class TokenRedemptionResponse(override val status: String, val updatedTokenBalance: String): BasicResponse()
+
+
+
+data class AddBankAccountRequest(val node: String, val bankAccountDetails: BankAccount)

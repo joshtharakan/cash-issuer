@@ -3,7 +3,9 @@ package com.allianz.t2i.client.rpc.server.controllers
 import com.allianz.t2i.client.rpc.server.common.InternalServiceException
 import net.corda.client.jackson.JacksonSupport
 import com.allianz.t2i.client.rpc.server.common.RPCFetchException
+import com.allianz.t2i.client.rpc.server.model.AddBankAccountRequest
 import com.allianz.t2i.client.rpc.server.service.StandardService
+import com.allianz.t2i.common.contracts.types.BankAccount
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -30,16 +32,23 @@ class CustomController(val standardService: StandardService) {
      * @param node Node identity to be used for rpc connection
      * @param account ID,Name,Number,sortcode represents account details
      */
-    @PostMapping("/addbankaccount")
-    private fun addBankAccount(@RequestParam(value="node", defaultValue = "AGCSSE") node: String,
-                                @RequestParam(value="accountId", defaultValue = "12345") accountId: String,
-                               @RequestParam(value="accountName", defaultValue = "AGCS SE") accountName: String,
-                               @RequestParam(value="accountNumber", defaultValue = "13371337") accountNumber: String,
-                               @RequestParam(value="sortCode", defaultValue = "442200") sortCode: String): ResponseEntity<String> {
+    @PostMapping(path = arrayOf("/addbankaccount" ), produces = arrayOf("application/json"), consumes = arrayOf("application/json"))
+    private fun addBankAccount(
+            @RequestBody addBankAccountRequest: AddBankAccountRequest
+    ): ResponseEntity<String> {
 
         try {
+
+            logger.info("Add bank account called")
+            /**
+             * provide the validation for details provided
+             */
+//            require(addBankAccountRequest.bankAccountDetails.accountId.length>6) {"requires account id of size greater than 6"}
+
+
+
             // call to the service for adding bank account
-            val rpcResponse = this.standardService.addBankAccount(node,accountId, accountName, accountNumber, sortCode)
+            val rpcResponse = this.standardService.addBankAccount(node = addBankAccountRequest.node, bankAccountDetails = addBankAccountRequest.bankAccountDetails)
             logger.info(rpcResponse.toString())
 
 

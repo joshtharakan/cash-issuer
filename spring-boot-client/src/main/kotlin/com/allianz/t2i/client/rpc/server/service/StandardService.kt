@@ -4,9 +4,6 @@ import com.r3.corda.lib.tokens.contracts.states.FungibleToken
 import com.r3.corda.lib.tokens.money.USD
 import com.allianz.t2i.common.contracts.schemas.BankAccountStateSchemaV1
 import com.allianz.t2i.common.contracts.states.BankAccountState
-import com.allianz.t2i.common.contracts.types.AccountNumber
-import com.allianz.t2i.common.contracts.types.BankAccount
-import com.allianz.t2i.common.contracts.types.UKAccountNumber
 import com.allianz.t2i.common.workflows.flows.AddBankAccount
 import com.allianz.t2i.common.workflows.flows.MoveCashShell
 import net.corda.client.rpc.internal.ReconnectingCordaRPCOps
@@ -20,6 +17,7 @@ import com.allianz.t2i.client.rpc.server.common.RPCConnectException
 import com.allianz.t2i.client.rpc.server.common.RPCFetchException
 import com.allianz.t2i.client.rpc.server.model.*
 import com.allianz.t2i.client.workflows.flows.RedeemCashShell
+import com.allianz.t2i.common.contracts.types.*
 import net.corda.core.internal.sum
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -74,7 +72,7 @@ interface StandardService {
      * Adds the bank account
      */
 
-    fun addBankAccount(node: String, accountId: String, accountName: String, accountNumber: String, sortCode: String): AccountAdditionResponse
+    fun addBankAccount(node: String, bankAccountDetails: BankAccount): AccountAdditionResponse
 
 
     /**
@@ -200,13 +198,15 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
      * Confirms the success by a query to check if the created bank account state is present in the vault
      */
     override fun addBankAccount(node: String,
-                                accountId: String,
-                                accountName: String,
-                                accountNumber: String,
-                                sortCode: String)
+                                bankAccountDetails: BankAccount
+                               )
             : AccountAdditionResponse {
 
         try {
+
+            logger.info("Add Bank account service called")
+            logger.info("Node: $node")
+            logger.info("bankAccountDetails:$bankAccountDetails")
 
 
             /** establish RPC Connection using the [connectRPC] method
@@ -215,15 +215,13 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
              */
             connectRPC(node).use { rpcConnection ->
 
-
                 // Start nrOfFlowsToRun and provide a logical retry function that checks the vault.
                 val flowProgressEvents = mutableMapOf<StateMachineRunId, MutableList<String>>()
 
                 // flow start AddBankAccount bankAccount: { accountId: 12345, accountName: Rogers Account, accountNumber: { sortCode: 442200, accountNumber: 13371337, type: uk }, currency: { tokenIdentifier: USD, fractionDigits: 2} }, verifier: Issuer
 
 
-                val accountnumber: AccountNumber = UKAccountNumber(sortCode = sortCode, accountNumber = accountNumber)
-                val bankAccount = BankAccount(accountId = accountId, accountName = accountName, accountNumber = accountnumber, currency = USD)
+//                val bankAccount = BankAccount(accountId = accountId, accountName = accountName, accountNumber = accountNumber,  currency = USD)
 
                 val issuerRef = rpcConnection.partiesFromName(query = "Issuer", exactMatch = true)
 
@@ -231,14 +229,14 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
                 // DOCSTART rpcReconnectingRPCFlowStarting
                 val flowId = rpcConnection.runFlowWithLogicalRetry(
                         runFlow = { rpc ->
-                            logger.debug("Starting addBankAccount for $accountName")
+                            logger.debug("Starting addBankAccount for ${bankAccountDetails.accountName}")
                             val flowHandle = rpc.startTrackedFlowDynamic(
                                     AddBankAccount::class.java,
-                                    bankAccount,
+                                    bankAccountDetails,
                                     issuerRef.first()
                             )
                             val flowId = flowHandle.id
-                            logger.info("Add bank account flow started flow $accountName with flowId: $flowId")
+                            logger.info("Add bank account flow started flow $bankAccountDetails.accountName with flowId: $flowId")
                             flowProgressEvents.addEvent(flowId, null)
 
                             // No reconnecting possible.
@@ -255,7 +253,7 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
                         hasFlowStarted = { rpc ->
 
                             // Query to check if the created bank account state is present in the vault
-                            val criteria = QueryCriteria.VaultCustomQueryCriteria(builder { BankAccountStateSchemaV1.PersistentBankAccountState::accountName.equal(accountName) }, status = Vault.StateStatus.ALL)
+                            val criteria = QueryCriteria.VaultCustomQueryCriteria(builder { BankAccountStateSchemaV1.PersistentBankAccountState::accountName.equal(bankAccountDetails.accountName) }, status = Vault.StateStatus.ALL)
                             val results = rpc.vaultQueryByCriteria(criteria, BankAccountState::class.java)
 
                             logger.debug("Bank Account State found - Found states ${results.states}")
@@ -278,7 +276,7 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
                 logger.debug("outside runFlowWithLogicalRetry")
 
                 // Query to check if the created bank account state is present in the vault
-                val criteria = QueryCriteria.VaultCustomQueryCriteria(builder { BankAccountStateSchemaV1.PersistentBankAccountState::accountName.equal(accountName) }, status = Vault.StateStatus.ALL)
+                val criteria = QueryCriteria.VaultCustomQueryCriteria(builder { BankAccountStateSchemaV1.PersistentBankAccountState::externalId.equal(bankAccountDetails.accountId) }, status = Vault.StateStatus.ALL)
                 val results = rpcConnection.vaultQueryByCriteria(criteria, BankAccountState::class.java)
                 val addedBankAccountState: BankAccountState = results.states.first().state.data
 
@@ -319,7 +317,7 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
                 logger.debug("total count of states: ${unconsumedTokenStates.count()}")
 
                 // aggregate using map reduce
-                val totalTokenValue = unconsumedTokenStates.map { it.state.data.amount.toDecimal()}.toList().sum()
+                val totalTokenValue = unconsumedTokenStates.map { it.state.data.amount.toDecimal()}.toList().sum().longValueExact()
 
                 logger.info("Token Value : $totalTokenValue")
 
@@ -589,7 +587,8 @@ open class StandardServiceImpl(@Autowired override val env: Environment) : Stand
 
 
     override fun fetchTransactionList(node: String): MutableList<Transaction> {
-        return transactionList.getOrElse(node){ mutableListOf<Transaction>() }
+            return transactionList.getOrElse(node){ mutableListOf<Transaction>(Transaction(id=UUID(0,0), amount = "NA",type = "NA")) }
+
     }
 
 

@@ -6,6 +6,7 @@ import com.allianz.t2i.common.contracts.BankAccountContract
 import com.allianz.t2i.common.contracts.schemas.BankAccountStateSchemaV1
 import com.allianz.t2i.common.contracts.serializers.TokenTypeSerializer
 import com.allianz.t2i.common.contracts.types.AccountNumber
+import com.allianz.t2i.common.contracts.types.AccountNumberType
 import com.allianz.t2i.common.contracts.types.BankAccountType
 import net.corda.core.contracts.BelongsToContract
 import net.corda.core.contracts.LinearState
